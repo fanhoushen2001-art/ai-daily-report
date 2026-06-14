@@ -95,11 +95,9 @@ def fetch_arxiv(n=5):
 
 def fetch_reddit_ai(n=5):
     """Reddit r/artificial 热门"""
-    data = http_get("https://www.reddit.com/r/artificial/hot.json?limit=8", {"User-Agent": "DailyReport/1.0 (by /u/ai-daily-bot)"})
-    if not isinstance(data, dict):
-        err = data.get("error", "非JSON响应(可能是被拦截)")[:80] if isinstance(data, dict) else f"类型:{type(data).__name__}"
-        print(f"失败: {err}", end=" ")
-        return []
+    data = http_get("https://www.reddit.com/r/artificial/hot.json?limit=8",
+                    {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"})
+    if not isinstance(data, dict): return []
     posts = data.get("data", {}).get("children", [])
     items = []
     for post in posts[:n]:
