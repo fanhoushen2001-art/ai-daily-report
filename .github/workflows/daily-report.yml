@@ -1,0 +1,25 @@
+name: AI 日报
+
+on:
+  schedule:
+    # 每天北京时间 17:00 = UTC 09:00
+    - cron: '0 9 * * *'
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  daily-report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: 设置 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: 运行日报
+        env:
+          FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
+          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+          FEISHU_CHAT_ID: ${{ secrets.FEISHU_CHAT_ID }}
+        run: python daily_report.py
