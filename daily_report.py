@@ -93,6 +93,29 @@ def fetch_arxiv(n=5):
     return items
 
 
+def fetch_reddit_ai(n=5):
+    """Reddit r/artificial 热门"""
+    data = http_get("https://www.reddit.com/r/artificial/hot.json?limit=8", {"User-Agent": "DailyReport/1.0"})
+    if not isinstance(data, dict): return []
+    posts = data.get("data", {}).get("children", [])
+    items = []
+    for post in posts[:n]:
+        d = post.get("data", {})
+        title = d.get("title", "")
+        url = d.get("url", "")
+        score = d.get("score", 0)
+        if title:
+            items.append({"title": title, "url": url, "score": score})
+    return items
+
+
+def fetch_lobsters(n=5):
+    """Lobste.rs 最新"""
+    data = http_get("https://lobste.rs/newest.json?limit=5")
+    if not isinstance(data, list): return []
+    return [{"title": p.get("title", ""), "url": p.get("url", ""), "tags": p.get("tags", [])[:3]} for p in data[:n] if p.get("title")]
+
+
 # ─── 飞书卡片 ───
 
 def get_tenant_token():
@@ -110,7 +133,7 @@ def send_card(token, card):
     )
 
 
-def build_card(aihot, hn, kr36, devto, arxiv):
+def build_card(aihot, hn, kr36, devto, arxiv, reddit, lobsters):
     today = datetime.now(BJT)
     date_str = today.strftime("%Y-%m-%d")
     wd = ["一","二","三","四","五","六","日"][today.weekday()]
@@ -158,10 +181,23 @@ def build_card(aihot, hn, kr36, devto, arxiv):
         lines = [f"{i}. [{it['title']}]({it['url']})" for i, it in enumerate(arxiv[:4], 1)]
         add_section("📚 ArXiv AI 论文", lines)
 
+    # Reddit
+    if reddit:
+        lines = [f"{i}. [{it['title']}]({it['url']}) 🔥{it.get('score',0)}" for i, it in enumerate(reddit[:5], 1)]
+        add_section("🔴 Reddit r/artificial", lines)
+
+    # Lobste.rs
+    if lobsters:
+        lines = []
+        for i, it in enumerate(lobsters[:4], 1):
+            tag_str = f" `{','.join(it['tags'])}`" if it.get('tags') else ""
+            lines.append(f"{i}. [{it['title']}]({it['url']}){tag_str}")
+        add_section("🦞 Lobste.rs", lines)
+
     # 页脚
     elements.append({
         "tag": "note",
-        "elements": [{"tag": "plain_text", "content": f"🤖 AI 日报 · {date_str} 周{wd} · 数据来源：AI HOT / HN / 36氪 / Dev.to / ArXiv"}]
+        "elements": [{"tag": "plain_text", "content": f"🤖 AI 日报 · {date_str} 周{wd} · 数据来源：AI HOT / HN / 36氪 / Reddit / Dev.to / Lobste.rs / ArXiv"}]
     })
 
     return {
@@ -181,6 +217,8 @@ def main():
         ("36氪", lambda: fetch_36kr(8)),
         ("Dev.to", lambda: fetch_devto(5)),
         ("ArXiv", lambda: fetch_arxiv(5)),
+        ("Reddit", lambda: fetch_reddit_ai(5)),
+        ("Lobste.rs", lambda: fetch_lobsters(5)),
     ]
     results = {}
     for name, fn in sources:
@@ -207,6 +245,8 @@ def main():
         results.get("36氪"),
         results.get("Dev.to"),
         results.get("ArXiv"),
+        results.get("Reddit"),
+        results.get("Lobste.rs"),
     )
     r = send_card(token, card)
     print("✅ 成功!" if r.get("code") == 0 else f"❌ {r.get('msg')}")
