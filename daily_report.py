@@ -57,33 +57,19 @@ def fetch_hackernews(n=10):
 
 def fetch_36kr(n=8):
     raw = http_get("https://www.36kr.com/feed", {"Accept": "application/xml"})
-    if not isinstance(raw, str) or "<entry" not in raw: return []
+    if not isinstance(raw, str): return []
     try:
         root = ET.fromstring(raw)
-        entries = root.findall(".//{http://www.w3.org/2005/Atom}entry")
+        # RSS 2.0 format
+        items_list = root.findall(".//item")
         items = []
-        for e in entries[:n]:
-            title = e.findtext("{http://www.w3.org/2005/Atom}title", "")
-            link_el = e.find("{http://www.w3.org/2005/Atom}link")
-            href = link_el.get("href", "") if link_el is not None else ""
-            if title: items.append({"title": title.strip(), "url": href})
+        for it in items_list[:n]:
+            title = it.findtext("title", "")
+            link = it.findtext("link", "")
+            if title: items.append({"title": title.strip(), "url": link.strip()})
         return items
     except Exception:
         return []
-
-
-def fetch_aibase(n=5):
-    html = http_get("https://www.aibase.com/zh/news")
-    if not isinstance(html, str): return []
-    pattern = re.compile(r'<a[^>]*href="(/zh/news/\d+)"[^>]*>([^<]+)</a>')
-    seen, items = set(), []
-    for href, title in pattern.findall(html):
-        t = title.strip()
-        if t and t not in seen and len(t) > 4:
-            seen.add(t)
-            items.append({"title": t, "url": f"https://www.aibase.com{href}"})
-            if len(items) >= n: break
-    return items
 
 
 def fetch_devto(n=5):
@@ -124,7 +110,7 @@ def send_card(token, card):
     )
 
 
-def build_card(aihot, hn, kr36, aibase, devto, arxiv):
+def build_card(aihot, hn, kr36, devto, arxiv):
     today = datetime.now(BJT)
     date_str = today.strftime("%Y-%m-%d")
     wd = ["一","二","三","四","五","六","日"][today.weekday()]
@@ -159,11 +145,6 @@ def build_card(aihot, hn, kr36, aibase, devto, arxiv):
         lines = [f"{i}. [{it['title']}]({it['url']})" for i, it in enumerate(kr36[:6], 1)]
         add_section("🇨🇳 36氪精选", lines)
 
-    # AIbase
-    if aibase:
-        lines = [f"{i}. [{it['title']}]({it['url']})" for i, it in enumerate(aibase[:5], 1)]
-        add_section("🧪 AIbase", lines)
-
     # Dev.to
     if devto:
         lines = []
@@ -180,7 +161,7 @@ def build_card(aihot, hn, kr36, aibase, devto, arxiv):
     # 页脚
     elements.append({
         "tag": "note",
-        "elements": [{"tag": "plain_text", "content": f"🤖 AI 日报 · {date_str} 周{wd} · 数据来源：AI HOT / HN / 36氪 / AIbase / Dev.to / ArXiv"}]
+        "elements": [{"tag": "plain_text", "content": f"🤖 AI 日报 · {date_str} 周{wd} · 数据来源：AI HOT / HN / 36氪 / Dev.to / ArXiv"}]
     })
 
     return {
@@ -198,7 +179,6 @@ def main():
         ("AI HOT", fetch_aihot),
         ("HackerNews", lambda: fetch_hackernews(10)),
         ("36氪", lambda: fetch_36kr(8)),
-        ("AIbase", lambda: fetch_aibase(5)),
         ("Dev.to", lambda: fetch_devto(5)),
         ("ArXiv", lambda: fetch_arxiv(5)),
     ]
@@ -225,7 +205,6 @@ def main():
         results.get("AI HOT"),
         results.get("HackerNews"),
         results.get("36氪"),
-        results.get("AIbase"),
         results.get("Dev.to"),
         results.get("ArXiv"),
     )
